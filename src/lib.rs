@@ -65,7 +65,11 @@ extern crate serde;
 #[macro_use]
 extern crate bitflags;
 
+#[cfg(all(feature = "serialize", not(any(all(target_arch = "x86", not(target_env = "sgx"), target_feature = "sse"), all(target_arch = "x86_64", not(target_env = "sgx"))))))]
+core::compile_error!("Feature `serialize` is not supported on targets that do not have native cpuid. x86 and x86_64 targets with SGX and x86 targets without SSE are consider to not have native cpuid.");
+
 /// Uses Rust's `cpuid` function from the `arch` module.
+#[cfg(any(all(target_arch = "x86", not(target_env = "sgx"), target_feature = "sse"), all(target_arch = "x86_64", not(target_env = "sgx"))))]
 pub mod native_cpuid {
     use crate::CpuIdResult;
 
@@ -105,6 +109,7 @@ mod std {
 ///
 /// First parameter is cpuid leaf (EAX register value),
 /// second optional parameter is the subleaf (ECX register value).
+#[cfg(any(all(target_arch = "x86", not(target_env = "sgx"), target_feature = "sse"), all(target_arch = "x86_64", not(target_env = "sgx"))))]
 #[macro_export]
 macro_rules! cpuid {
     ($eax:expr) => {
@@ -175,6 +180,7 @@ impl CpuIdReader {
     }
 }
 
+#[cfg(any(all(target_arch = "x86", not(target_env = "sgx"), target_feature = "sse"), all(target_arch = "x86_64", not(target_env = "sgx"))))]
 impl Default for CpuIdReader {
     fn default() -> Self {
         Self {
@@ -223,6 +229,7 @@ pub struct CpuId {
     supported_extended_leafs: u32,
 }
 
+#[cfg(any(all(target_arch = "x86", not(target_env = "sgx"), target_feature = "sse"), all(target_arch = "x86_64", not(target_env = "sgx"))))]
 impl Default for CpuId {
     fn default() -> CpuId {
         CpuId::with_cpuid_fn(native_cpuid::cpuid_count)
@@ -304,6 +311,7 @@ const EAX_SVM_FEATURES: u32 = 0x8000_000A;
 
 impl CpuId {
     /// Return new CpuId struct.
+    #[cfg(any(all(target_arch = "x86", not(target_env = "sgx"), target_feature = "sse"), all(target_arch = "x86_64", not(target_env = "sgx"))))]
     pub fn new() -> Self {
         Self::default()
     }
@@ -5129,9 +5137,9 @@ impl SoCVendorInfo {
     pub fn get_vendor_brand(&self) -> Option<SoCVendorBrand> {
         // Leaf 17H is valid if MaxSOCID_Index >= 3.
         if self.eax >= 3 {
-            let r1 = cpuid!(EAX_SOC_VENDOR_INFO, 1);
-            let r2 = cpuid!(EAX_SOC_VENDOR_INFO, 2);
-            let r3 = cpuid!(EAX_SOC_VENDOR_INFO, 3);
+            let r1 = self.read.cpuid2(EAX_SOC_VENDOR_INFO, 1);
+            let r2 = self.read.cpuid2(EAX_SOC_VENDOR_INFO, 2);
+            let r3 = self.read.cpuid2(EAX_SOC_VENDOR_INFO, 3);
             Some(SoCVendorBrand { data: [r1, r2, r3] })
         } else {
             None
